@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -40,6 +41,22 @@ public class Rocket : MonoBehaviour
     private void FixedUpdate()
     {
         RotateShip();
+    }
+
+    private void OnCollisionEnter(Collision otherCollider)
+    {
+        switch(otherCollider.gameObject.tag)
+        {
+            case "Friendly":
+                // do nothing
+                break;
+            case "Fuel":
+                ProcessFuel();
+                break;
+            default:
+                DestroyShip();
+                break;
+        }
     }
 
     private void ProcessInput()
@@ -105,5 +122,15 @@ public class Rocket : MonoBehaviour
         queueRotation = ROTATE_DIRECTION_STATIC;
         myRigidbody.freezeRotation = false; // back to you boss
 
+    }
+
+    private void DestroyShip()
+    {
+        UnityEngine.Debug.Log("Hit.");
+    }
+
+    private void ProcessFuel()
+    {
+        UnityEngine.Debug.Log("Processing fuel.");
     }
 }

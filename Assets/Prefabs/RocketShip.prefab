@@ -440,8 +440,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bdec6f14c822f014a8ffa6ab65488445, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  thrusterForce: 7
-  rotationScaler: 10
+  thrusterForce: 20
+  rotationScaler: 200
   thrusterSound: {fileID: 8300000, guid: b5ec1d3a07693ee46bb6ea63d79b801a, type: 3}
 --- !u!1 &988288898857683096
 GameObject:
