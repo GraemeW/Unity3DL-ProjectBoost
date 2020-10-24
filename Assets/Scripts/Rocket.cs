@@ -3,22 +3,33 @@ using System.Collections.Generic;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.SceneManagement;
+using TMPro;
 
 public class Rocket : MonoBehaviour
 {
     // Const
-    static int ROTATE_DIRECTION_STATIC = 0;
-    static int ROTATE_DIRECTION_LEFT = 1;
-    static int ROTATE_DIRECTION_RIGHT = 2;
+    enum RotationDirection { Static, Left, Right };
+    enum State { Alive, Dying, Transcending }
 
     // Tunables
+    [Header("Controls")]
     [SerializeField] float thrusterForce = 10.0f;
     [SerializeField] float rotationScaler = 10.0f;
+    [SerializeField] float delayAfterLevelComplete = 2.0f;
+    [Header("SFX")]
     [SerializeField] AudioClip thrusterSound = null;
+    [SerializeField] AudioClip explosionSound = null;
+    [SerializeField] AudioClip successSound = null;
+    [Header("VFX")]
+    [SerializeField] ParticleSystem thrusterVFX = null;
+    [SerializeField] ParticleSystem explosionVFX = null;
+    [SerializeField] ParticleSystem successVFX = null;
 
     // State
-    int queueRotation = 0;
+    RotationDirection queueRotation = 0;
     bool thrustersEngaged = false;
+    State state = State.Alive;
 
     // Cached references
     Rigidbody myRigidbody = null;
@@ -30,12 +41,19 @@ public class Rocket : MonoBehaviour
         myRigidbody = GetComponent<Rigidbody>();
         audioSource = GetComponent<AudioSource>();
         audioSource.clip = thrusterSound;
+        audioSource.loop = true;
+        thrusterVFX = transform.Find("Rocket Jet Particles").gameObject.GetComponent<ParticleSystem>();
+        explosionVFX = transform.Find("Explosion Particles").gameObject.GetComponent<ParticleSystem>();
+        successVFX = transform.Find("Success Particles").gameObject.GetComponent<ParticleSystem>();
     }
 
     // Update is called once per frame
     void Update()
     {
-        ProcessInput();
+        if (state == State.Alive)
+        {
+            ProcessInput();
+        }
     }
 
     private void FixedUpdate()
@@ -45,16 +63,24 @@ public class Rocket : MonoBehaviour
 
     private void OnCollisionEnter(Collision otherCollider)
     {
-        switch(otherCollider.gameObject.tag)
+        if (state != State.Alive) { return; }
+
+        switch (otherCollider.gameObject.tag)
         {
             case "Friendly":
                 // do nothing
                 break;
-            case "Fuel":
-                ProcessFuel();
+            case "Finished":
+                state = State.Transcending;
+                successVFX.Play();
+                QueueSFX(successSound);
+                Invoke("ProcessFinished", delayAfterLevelComplete);
                 break;
             default:
-                DestroyShip();
+                state = State.Dying;
+                explosionVFX.Play();
+                QueueSFX(explosionSound);
+                Invoke("DestroyShip", delayAfterLevelComplete);
                 break;
         }
     }
@@ -69,11 +95,11 @@ public class Rocket : MonoBehaviour
     {
         if (Input.GetKey(KeyCode.A))
         {
-            queueRotation = ROTATE_DIRECTION_LEFT;
+            queueRotation = RotationDirection.Left;
         }
         else if (Input.GetKey(KeyCode.D))
         {
-            queueRotation = ROTATE_DIRECTION_RIGHT;
+            queueRotation = RotationDirection.Right;
         }
     }
 
@@ -91,7 +117,8 @@ public class Rocket : MonoBehaviour
 
     private void FireThrusters()
     {
-        myRigidbody.AddRelativeForce(thrusterForce * Vector3.up);
+        myRigidbody.AddRelativeForce(thrusterForce * Vector3.up * Time.deltaTime);
+        thrusterVFX.Play();
         if (!thrustersEngaged)
         {
             thrustersEngaged = true;
@@ -101,6 +128,7 @@ public class Rocket : MonoBehaviour
 
     private void HaltThrusters()
     {
+        thrusterVFX.Stop();
         audioSource.Stop();
         thrustersEngaged = false;
     }
@@ -110,27 +138,40 @@ public class Rocket : MonoBehaviour
         myRigidbody.freezeRotation = true; // take manual control of rotation
 
         float rotationPreFactor = rotationScaler * Time.deltaTime;
-        if (queueRotation == ROTATE_DIRECTION_LEFT)
+        if (queueRotation == RotationDirection.Left)
         {
             transform.Rotate(rotationPreFactor * Vector3.forward);
         }
-        else if (queueRotation == ROTATE_DIRECTION_RIGHT)
+        else if (queueRotation == RotationDirection.Right)
         {
             transform.Rotate(-rotationPreFactor * Vector3.forward);
             
         }
-        queueRotation = ROTATE_DIRECTION_STATIC;
+        queueRotation = RotationDirection.Static;
         myRigidbody.freezeRotation = false; // back to you boss
 
     }
 
-    private void DestroyShip()
+    private void QueueSFX(AudioClip inputAudio)
     {
-        UnityEngine.Debug.Log("Hit.");
+        audioSource.Stop();
+        audioSource.PlayOneShot(inputAudio);
     }
 
-    private void ProcessFuel()
+    private void DestroyShip()
     {
-        UnityEngine.Debug.Log("Processing fuel.");
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    private void ProcessFinished()
+    {
+        if (SceneManager.GetActiveScene().buildIndex == SceneManager.sceneCountInBuildSettings - 1)
+        {
+            SceneManager.LoadScene(0);
+        }
+        else
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+        }
     }
 }
