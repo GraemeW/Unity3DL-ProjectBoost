@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
@@ -16,7 +15,6 @@ public class Rocket : MonoBehaviour
     [Header("Controls")]
     [SerializeField] float thrusterForce = 10.0f;
     [SerializeField] float rotationScaler = 10.0f;
-    [SerializeField] float delayAfterLevelComplete = 2.0f;
     [Header("SFX")]
     [SerializeField] AudioClip thrusterSound = null;
     [SerializeField] AudioClip explosionSound = null;
@@ -25,20 +23,26 @@ public class Rocket : MonoBehaviour
     [SerializeField] ParticleSystem thrusterVFX = null;
     [SerializeField] ParticleSystem explosionVFX = null;
     [SerializeField] ParticleSystem successVFX = null;
+    [Header("Admin")]
+    [SerializeField] float delayAfterLevelComplete = 2.0f;
 
     // State
     RotationDirection queueRotation = 0;
     bool thrustersEngaged = false;
     State state = State.Alive;
+    bool colliderEnabled = true;
+    bool colliderEffectsEnabled = true;
 
     // Cached references
     Rigidbody myRigidbody = null;
+    Collider[] colliders = null;
     AudioSource audioSource = null;
 
     // Start is called before the first frame update
     void Start()
     {
         myRigidbody = GetComponent<Rigidbody>();
+        colliders = GetComponentsInChildren<Collider>();
         audioSource = GetComponent<AudioSource>();
         audioSource.clip = thrusterSound;
         audioSource.loop = true;
@@ -77,6 +81,7 @@ public class Rocket : MonoBehaviour
                 Invoke("ProcessFinished", delayAfterLevelComplete);
                 break;
             default:
+                if (!colliderEffectsEnabled) { return; }
                 state = State.Dying;
                 explosionVFX.Play();
                 QueueSFX(explosionSound);
@@ -89,6 +94,19 @@ public class Rocket : MonoBehaviour
     {
         Thrust();
         SetUpRotate();
+        Debug();
+    }
+
+    private void Thrust()
+    {
+        if (Input.GetKey(KeyCode.Space)) // can thrust while rotating
+        {
+            FireThrusters();
+        }
+        else
+        {
+            HaltThrusters();
+        }
     }
 
     private void SetUpRotate()
@@ -103,15 +121,35 @@ public class Rocket : MonoBehaviour
         }
     }
 
-    private void Thrust()
+
+    private void Debug()
     {
-        if (Input.GetKey(KeyCode.Space)) // can thrust while rotating
+        if (!UnityEngine.Debug.isDebugBuild) { return; }
+        if (Input.GetKeyDown(KeyCode.L))
         {
-            FireThrusters();
+            ProcessFinished();
         }
-        else
+        if (Input.GetKeyDown(KeyCode.C))
         {
-            HaltThrusters();
+            if (colliderEnabled)
+            {
+                foreach (Collider collider in colliders)
+                {
+                    collider.enabled = false;
+                }
+            }
+            else
+            {
+                foreach (Collider collider in colliders)
+                {
+                    collider.enabled = true;
+                }
+            }
+            colliderEnabled = !colliderEnabled;
+        }
+        if (Input.GetKeyDown(KeyCode.K))
+        {
+            colliderEffectsEnabled = !colliderEffectsEnabled;
         }
     }
 
